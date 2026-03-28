@@ -132,6 +132,70 @@
 
 ---
 
+一共 `3` 个表：
+
+- `groups`
+- `sites`
+- `configs`
+
+全新初始化时，直接执行 [init_table.sql](D:/Git/Cloudflare-Navihive/init_table.sql) 里的 SQL 就够了：
+
+```sql
+-- 创建分组表
+CREATE TABLE IF NOT EXISTS groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    order_num INTEGER NOT NULL,
+    is_public INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 创建站点表
+CREATE TABLE IF NOT EXISTS sites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    icon TEXT,
+    description TEXT,
+    notes TEXT,
+    order_num INTEGER NOT NULL,
+    is_public INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+);
+
+-- 创建配置表
+CREATE TABLE IF NOT EXISTS configs (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 设置初始化标志
+INSERT INTO configs (key, value) VALUES ('DB_INITIALIZED', 'true');
+```
+
+如果你是从旧版本升级，不是新库，那还要看一下迁移文件 [002_add_is_public.sql](D:/Git/Cloudflare-Navihive/migrations/002_add_is_public.sql)：
+
+```sql
+ALTER TABLE groups ADD COLUMN is_public INTEGER DEFAULT 1;
+ALTER TABLE sites ADD COLUMN is_public INTEGER DEFAULT 1;
+
+CREATE INDEX IF NOT EXISTS idx_groups_is_public ON groups(is_public);
+CREATE INDEX IF NOT EXISTS idx_sites_is_public ON sites(is_public);
+```
+
+结论：
+- 新库：执行 `init_table.sql`，3 个表。
+- 旧库升级：额外执行 `002_add_is_public.sql`。  
+
+如果你要，我可以下一条直接给你整理成“Cloudflare D1 可直接执行”的完整命令。
+
+
 <div align="center">
 
 ## 🎉 让导航管理更简单
