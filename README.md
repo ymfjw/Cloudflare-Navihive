@@ -46,14 +46,91 @@
 
 ### 立即部署
 
-**5 分钟完成部署，零成本永久使用：**
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/thusbs/Cloudflare-Navihive)
 
-1. **Fork 项目** → 点击右上角 Fork 按钮
-2. **新建 wrangler.jsonc 文件** 从 wrangler.template.jsonc 复制然后修改
-3. **一键部署** → [![Deploy](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/你的用户名/Cloudflare-Navihive)
-4. **配置数据库** → 按照[部署指南](https://zqq-nuli.github.io/Cloudflare-Navihive/deployment/)创建 D1 数据库
+按钮适合快速创建初始项目，但 D1 数据库、认证变量和首次数仓初始化仍然需要手动补齐。
 
-> 详细步骤见[完整部署指南](https://zqq-nuli.github.io/Cloudflare-Navihive/deployment/)
+#### 一键部署的文字版完整流程
+
+1. 准备仓库  
+   直接使用现有仓库 `thusbs/Cloudflare-Navihive`，或者先 Fork 到你自己的 GitHub 账号。  
+   如果你不想让 Cloudflare 新建 GitHub 仓库，在 Cloudflare 向导里直接选择现有仓库即可。
+
+2. 点击部署按钮  
+   点击上面的 `Deploy to Cloudflare Workers` 按钮，登录 Cloudflare，授权 GitHub，然后选择要连接的仓库和生产分支 `main`。
+
+3. 创建 Cloudflare Worker 项目  
+   在部署向导中填写项目名称，通常保持 `navihive` 即可。  
+   完成后 Cloudflare 会先跑一次初始部署，这一步主要是把项目创建出来。
+
+4. 创建 D1 数据库  
+   在 Cloudflare Dashboard 打开 `Workers & Pages > D1`，创建一个数据库，例如 `navigation-db`。  
+   也可以本地执行：
+
+   ```bash
+   npx wrangler d1 create navigation-db
+   ```
+
+5. 绑定 D1 到项目  
+   编辑仓库根目录的 `wrangler.jsonc`，把 `d1_databases` 中的 `database_name` 和 `database_id` 换成你自己的值，并保持 `binding` 为 `DB`：
+
+   ```jsonc
+   "d1_databases": [
+     {
+       "binding": "DB",
+       "database_name": "navigation-db",
+       "database_id": "你的-database-id"
+     }
+   ]
+   ```
+
+6. 配置认证变量  
+   `AUTH_PASSWORD` 不能写明文，必须先生成 bcrypt 哈希。  
+   先执行：
+
+   ```bash
+   pnpm hash-password YourStrongPassword123
+   ```
+
+   再把输出结果填进 `wrangler.jsonc` 的 `vars`：
+
+   ```jsonc
+   "vars": {
+     "AUTH_ENABLED": "true",
+     "AUTH_REQUIRED_FOR_READ": "false",
+     "AUTH_USERNAME": "admin",
+     "AUTH_PASSWORD": "$2b$10$...",
+     "AUTH_SECRET": "至少32位随机字符串"
+   }
+   ```
+
+7. 初始化数据库表  
+   新库直接执行：
+
+   ```bash
+   npx wrangler d1 execute DB --remote --file=./init_table.sql --yes
+   ```
+
+   如果你是旧库升级，再额外执行：
+
+   ```bash
+   npx wrangler d1 execute DB --remote --file=./migrations/002_add_is_public.sql --yes
+   ```
+
+8. 重新触发部署  
+   如果项目已经连接到 GitHub，直接把配置提交到 `main`，Cloudflare 会自动重新部署。  
+   如果你想本地手动部署，也可以执行：
+
+   ```bash
+   npm run build
+   npx wrangler deploy
+   ```
+
+9. 验证是否成功  
+   打开 Cloudflare 分配的 `*.workers.dev` 地址，确认首页可以访问、登录可用、站点和分组可以正常读写。  
+   首次登录时使用你在 `AUTH_USERNAME` 中设置的用户名，以及生成哈希前的原始密码。
+
+> 详细说明见[完整部署指南](https://zqq-nuli.github.io/Cloudflare-Navihive/deployment/)
 
 ---
 
@@ -129,72 +206,6 @@
   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=zqq-nuli/Cloudflare-Navihive&type=Date" />
   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=zqq-nuli/Cloudflare-Navihive&type=Date" />
 </picture>
-
----
-
-一共 `3` 个表：
-
-- `groups`
-- `sites`
-- `configs`
-
-全新初始化时，直接执行 [init_table.sql](D:/Git/Cloudflare-Navihive/init_table.sql) 里的 SQL 就够了：
-
-```sql
--- 创建分组表
-CREATE TABLE IF NOT EXISTS groups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    order_num INTEGER NOT NULL,
-    is_public INTEGER DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 创建站点表
-CREATE TABLE IF NOT EXISTS sites (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    group_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    url TEXT NOT NULL,
-    icon TEXT,
-    description TEXT,
-    notes TEXT,
-    order_num INTEGER NOT NULL,
-    is_public INTEGER DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
-);
-
--- 创建配置表
-CREATE TABLE IF NOT EXISTS configs (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 设置初始化标志
-INSERT INTO configs (key, value) VALUES ('DB_INITIALIZED', 'true');
-```
-
-如果你是从旧版本升级，不是新库，那还要看一下迁移文件 [002_add_is_public.sql](D:/Git/Cloudflare-Navihive/migrations/002_add_is_public.sql)：
-
-```sql
-ALTER TABLE groups ADD COLUMN is_public INTEGER DEFAULT 1;
-ALTER TABLE sites ADD COLUMN is_public INTEGER DEFAULT 1;
-
-CREATE INDEX IF NOT EXISTS idx_groups_is_public ON groups(is_public);
-CREATE INDEX IF NOT EXISTS idx_sites_is_public ON sites(is_public);
-```
-
-结论：
-- 新库：执行 `init_table.sql`，3 个表。
-- 旧库升级：额外执行 `002_add_is_public.sql`。  
-
-如果你要，我可以下一条直接给你整理成“Cloudflare D1 可直接执行”的完整命令。
-
 
 <div align="center">
 
