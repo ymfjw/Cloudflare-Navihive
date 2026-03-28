@@ -8,6 +8,7 @@ import GroupCard from './components/GroupCard';
 import SiteCard from './components/SiteCard';
 import LoginForm from './components/LoginForm';
 import SearchBox from './components/SearchBox';
+import { prepareImportDataFromText } from './utils/bookmarkImport';
 import { sanitizeCSS, isSecureUrl, extractDomain } from './utils/url';
 import { SearchResultItem } from './utils/search';
 import './App.css';
@@ -952,6 +953,7 @@ function App() {
   };
 
   const handleCloseImport = () => {
+    setImportError(null);
     setOpenImport(false);
   };
 
@@ -976,70 +978,45 @@ function App() {
     try {
       setImportLoading(true);
       setImportError(null);
+      const rawText = await importFile.text();
+      const preparedImport = prepareImportDataFromText(importFile.name, rawText);
 
-      const fileReader = new FileReader();
-      fileReader.readAsText(importFile, 'UTF-8');
+      const result = await api.importData(preparedImport.data);
 
-      fileReader.onload = async (e) => {
-        try {
-          if (!e.target?.result) {
-            throw new Error('读取文件失败');
-          }
+      if (!result.success) {
+        throw new Error(result.error || '导入失败');
+      }
 
-          const importData = JSON.parse(e.target.result as string);
+      const summary = [
+        `导入成功，已保存到数据库。`,
+        `识别格式：${preparedImport.summary.formatLabel}`,
+        `解析结果：分组 ${preparedImport.summary.groupCount} 个，书签 ${preparedImport.summary.siteCount} 个`,
+      ];
 
-          // 验证导入数据格式
-          if (!importData.groups || !Array.isArray(importData.groups)) {
-            throw new Error('导入文件格式错误：缺少分组数据');
-          }
+      if (preparedImport.summary.skippedCount > 0) {
+        summary.push(`本地预处理：跳过 ${preparedImport.summary.skippedCount} 个非网页收藏项`);
+      }
 
-          if (!importData.sites || !Array.isArray(importData.sites)) {
-            throw new Error('导入文件格式错误：缺少站点数据');
-          }
+      if (result.stats) {
+        summary.push(
+          `数据库分组：发现${result.stats.groups.total}个，新建${result.stats.groups.created}个，合并${result.stats.groups.merged}个`
+        );
+        summary.push(
+          `数据库站点：发现${result.stats.sites.total}个，新建${result.stats.sites.created}个，更新${result.stats.sites.updated}个，跳过${result.stats.sites.skipped}个`
+        );
+      }
 
-          if (!importData.configs || typeof importData.configs !== 'object') {
-            throw new Error('导入文件格式错误：缺少配置数据');
-          }
+      setImportResultMessage(summary.join('\n'));
+      setImportResultOpen(true);
 
-          // 调用API导入数据
-          const result = await api.importData(importData);
-
-          if (!result.success) {
-            throw new Error(result.error || '导入失败');
-          }
-
-          // 显示导入结果统计
-          const stats = result.stats;
-          if (stats) {
-            const summary = [
-              `导入成功！`,
-              `分组：发现${stats.groups.total}个，新建${stats.groups.created}个，合并${stats.groups.merged}个`,
-              `卡片：发现${stats.sites.total}个，新建${stats.sites.created}个，更新${stats.sites.updated}个，跳过${stats.sites.skipped}个`,
-            ].join('\n');
-
-            setImportResultMessage(summary);
-            setImportResultOpen(true);
-          }
-
-          // 刷新数据
-          await fetchData();
-          await fetchConfigs();
-          handleCloseImport();
-        } catch (error) {
-          console.error('解析导入数据失败:', error);
-          handleError('解析导入数据失败: ' + (error instanceof Error ? error.message : '未知错误'));
-        } finally {
-          setImportLoading(false);
-        }
-      };
-
-      fileReader.onerror = () => {
-        handleError('读取文件失败');
-        setImportLoading(false);
-      };
+      await fetchData();
+      await fetchConfigs();
+      handleCloseImport();
     } catch (error) {
       console.error('导入数据失败:', error);
-      handleError('导入数据失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      setImportError(errorMessage);
+      handleError('导入数据失败: ' + errorMessage);
     } finally {
       setImportLoading(false);
     }
@@ -1514,7 +1491,7 @@ function App() {
                           <ListItemIcon>
                             <FileUploadIcon fontSize='small' />
                           </ListItemIcon>
-                          <ListItemText>导入数据</ListItemText>
+                          <ListItemText>导入数据 / 收藏夹</ListItemText>
                         </MenuItem>
                         {isAuthenticated && (
                           <>
@@ -2252,7 +2229,8 @@ function App() {
             </DialogTitle>
             <DialogContent>
               <DialogContentText sx={{ mb: 2 }}>
-                请选择要导入的JSON文件，导入将覆盖现有数据。
+                支持 NaviHive 备份 JSON、Chrome 导出的收藏夹 HTML，以及 Chrome 的 Bookmarks
+                JSON。系统会自动识别格式，导入后会合并保存到数据库。
               </DialogContentText>
               <Box sx={{ mb: 2 }}>
                 <Button
@@ -2262,13 +2240,17 @@ function App() {
                   sx={{ mb: 2 }}
                 >
                   选择文件
-                  <input type='file' hidden accept='.json' onChange={handleFileSelect} />
+                  <input type='file' hidden accept='.json,.html,.htm' onChange={handleFileSelect} />
                 </Button>
                 {importFile && (
                   <Typography variant='body2' sx={{ mt: 1 }}>
                     已选择: {importFile.name}
                   </Typography>
                 )}
+                <Typography variant='caption' color='text.secondary' sx={{ display: 'block', mt: 1 }}>
+                  Chrome 可在“书签管理器 &gt; 导出书签”得到 HTML 文件；也支持本地 Bookmarks
+                  JSON 文件。
+                </Typography>
               </Box>
               {importError && (
                 <Alert severity='error' sx={{ mb: 2 }}>
