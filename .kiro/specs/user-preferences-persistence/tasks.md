@@ -6,8 +6,8 @@
 
 ## 任务
 
-- [ ] 1. 数据库架构和迁移
-  - [ ] 1.1 创建数据库迁移脚本
+- [x] 1. 数据库架构和迁移
+  - [x] 1.1 创建数据库迁移脚本
     - 创建 `migrations/003_add_user_preferences.sql` 文件
     - 定义 user_favorites 表（id, user_id, site_id, created_at）
     - 定义 user_preferences 表（user_id, view_mode, theme_mode, custom_colors, updated_at）
@@ -22,15 +22,15 @@
     - **属性 14: 级联删除完整性**
     - **验证需求: 8.1**
 
-- [ ] 2. Worker API 实现 - 核心基础设施
-  - [ ] 2.1 实现设备标识符管理工具
+- [x] 2. Worker API 实现 - 核心基础设施
+  - [x] 2.1 实现设备标识符管理工具
     - 创建 `worker/utils/deviceIdentifier.ts`
     - 实现 `getDeviceIdentifier()` 函数（从请求头或 Cookie 获取）
     - 实现 `generateDeviceIdentifier()` 函数（使用 crypto.randomUUID）
     - 实现 `isValidDeviceIdentifier()` 验证函数
     - _需求: 2.1_
   
-  - [ ] 2.2 实现用户标识符解析工具
+  - [x] 2.2 实现用户标识符解析工具
     - 创建 `worker/utils/userIdentifier.ts`
     - 实现 `getUserIdentifier()` 函数
     - 优先验证认证令牌，降级到设备标识符
@@ -41,8 +41,8 @@
     - **属性 7: 用户身份识别正确性**
     - **验证需求: 4.7, 4.8**
 
-- [ ] 3. Worker API 实现 - PreferencesAPI 类
-  - [ ] 3.1 创建 PreferencesAPI 类骨架
+- [-] 3. Worker API 实现 - PreferencesAPI 类
+  - [-] 3.1 创建 PreferencesAPI 类骨架
     - 创建 `worker/api/preferences.ts`
     - 定义 PreferencesAPI 类，接受 D1Database 参数
     - 定义 TypeScript 接口（Favorite, UserPreferences, Visit, MigrationResult）
