@@ -94,7 +94,7 @@ type ContentFilter = 'all' | 'favorites' | 'recent';
 
 const FAVORITE_SITE_IDS_KEY = 'navihive.favoriteSiteIds';
 const RECENT_SITE_IDS_KEY = 'navihive.recentSiteIds';
-const MAX_RECENT_SITES = 8;
+const MAX_RECENT_SITES = 20; // 增加最近访问站点数量
 
 function readStoredSiteIds(key: string): number[] {
   if (typeof window === 'undefined') return [];
@@ -1095,32 +1095,29 @@ function App() {
       {sites.length > 0 ? (
         <Box
           sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            margin: -1,
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, 1fr)',
+              md: 'repeat(3, 1fr)',
+              lg: 'repeat(4, 1fr)',
+            },
+            gap: 1.5,
           }}
         >
-          {sites.slice(0, 4).map((site) => (
-            <Box
+          {sites.map((site) => (
+            <SiteCard
               key={`spotlight-${title}-${site.id}`}
-              sx={{
-                width: { xs: '100%', sm: '50%' },
-                p: 1,
-                boxSizing: 'border-box',
-              }}
-            >
-              <SiteCard
-                site={site}
-                onUpdate={handleSiteUpdate}
-                onDelete={handleSiteDelete}
-                viewMode={viewMode}
-                iconApi={configs['site.iconApi']}
-                isFavorite={site.id !== undefined && favoriteSiteIds.includes(site.id)}
-                onToggleFavorite={handleToggleFavorite}
-                onVisit={handleSiteVisit}
-                contextLabel={groupNameMap.get(site.group_id) || '未分组'}
-              />
-            </Box>
+              site={site}
+              onUpdate={handleSiteUpdate}
+              onDelete={handleSiteDelete}
+              viewMode={viewMode}
+              iconApi={configs['site.iconApi']}
+              isFavorite={site.id !== undefined && favoriteSiteIds.includes(site.id)}
+              onToggleFavorite={handleToggleFavorite}
+              onVisit={handleSiteVisit}
+              contextLabel={groupNameMap.get(site.group_id) || '未分组'}
+            />
           ))}
         </Box>
       ) : (
