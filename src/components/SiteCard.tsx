@@ -1,10 +1,11 @@
 // src/components/SiteCard.tsx
-import { useState, memo } from 'react';
+import { useState, memo, useEffect } from 'react';
 import { Site } from '../API/http';
 import SiteSettingsModal from './SiteSettingsModal';
 import { extractDomain } from '../utils/url';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { createIconCacheService } from '../services/IconCacheService';
 // 引入Material UI组件
 import {
   Card,
@@ -53,12 +54,29 @@ const SiteCard = memo(function SiteCard({
   const [showSettings, setShowSettings] = useState(false);
   const [iconError, setIconError] = useState(!site.icon);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [cachedIconUrl, setCachedIconUrl] = useState<string>(site.icon || '');
 
-  // 使用dnd-kit的useSortable hook
+  // Use dnd-kit's useSortable hook
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `site-${site.id || index}`,
     disabled: !isEditMode,
   });
+
+  // Load icon using IconCacheService
+  useEffect(() => {
+    const iconService = createIconCacheService();
+    const domain = extractDomain(site.url) || site.url;
+
+    iconService
+      .getIcon(domain, site.icon)
+      .then((iconUrl) => {
+        setCachedIconUrl(iconUrl);
+        setIconError(!iconUrl);
+      })
+      .catch(() => {
+        setIconError(true);
+      });
+  }, [site.url, site.icon]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -236,7 +254,7 @@ const SiteCard = memo(function SiteCard({
             </Box>
             {/* 图标和名称 */}
             <Box display='flex' alignItems='center' mb={1}>
-              {!iconError && site.icon ? (
+              {!iconError && cachedIconUrl ? (
                 <Box position='relative' mr={1.5} width={32} height={32} flexShrink={0}>
                   <Skeleton
                     variant='rounded'
@@ -250,7 +268,7 @@ const SiteCard = memo(function SiteCard({
                   <Fade in={imageLoaded} timeout={500}>
                     <Box
                       component='img'
-                      src={site.icon}
+                      src={cachedIconUrl}
                       alt={site.name}
                       sx={{
                         width: 32,
@@ -325,7 +343,7 @@ const SiteCard = memo(function SiteCard({
             >
               {/* 图标和名称 */}
               <Box display='flex' alignItems='center' mb={1}>
-                {!iconError && site.icon ? (
+                {!iconError && cachedIconUrl ? (
                   <Box position='relative' mr={1.5} width={32} height={32} flexShrink={0}>
                     <Skeleton
                       variant='rounded'
@@ -339,7 +357,7 @@ const SiteCard = memo(function SiteCard({
                     <Fade in={imageLoaded} timeout={500}>
                       <Box
                         component='img'
-                        src={site.icon}
+                        src={cachedIconUrl}
                         alt={site.name}
                         sx={{
                           width: 32,

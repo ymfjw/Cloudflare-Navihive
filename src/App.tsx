@@ -5,6 +5,7 @@ import { Site, Group } from './API/http';
 import { GroupWithSites } from './types';
 import { useTheme } from './contexts/ThemeContext';
 import ThemeToggle from './components/ThemeToggle';
+import ViewModeToggle, { type ViewMode as BookmarkViewMode } from './components/ViewModeToggle';
 import GroupCard from './components/GroupCard';
 import SiteCard from './components/SiteCard';
 import LoginForm from './components/LoginForm';
@@ -148,6 +149,18 @@ function App() {
   // 访问模式状态 (readonly: 访客模式, edit: 编辑模式)
   type ViewMode = 'readonly' | 'edit';
   const [viewMode, setViewMode] = useState<ViewMode>('readonly');
+  const [bookmarkViewMode, setBookmarkViewMode] = useState<BookmarkViewMode>(() => {
+    const saved = localStorage.getItem('navihive.viewPreferences');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.mode === 'list' ? 'list' : 'card';
+      } catch {
+        return 'card';
+      }
+    }
+    return 'card';
+  });
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
   const [favoriteSiteIds, setFavoriteSiteIds] = useState<number[]>(() =>
     readStoredSiteIds(FAVORITE_SITE_IDS_KEY)
@@ -155,6 +168,12 @@ function App() {
   const [recentSiteIds, setRecentSiteIds] = useState<number[]>(() =>
     readStoredSiteIds(RECENT_SITE_IDS_KEY)
   );
+
+  // Handle bookmark view mode change
+  const handleBookmarkViewModeChange = (mode: BookmarkViewMode) => {
+    setBookmarkViewMode(mode);
+    localStorage.setItem('navihive.viewPreferences', JSON.stringify({ mode }));
+  };
 
   // 配置状态
   const [configs, setConfigs] = useState<Record<string, string>>(DEFAULT_CONFIGS);
@@ -1404,6 +1423,7 @@ function App() {
                     </>
                   )}
 
+                  <ViewModeToggle mode={bookmarkViewMode} onChange={handleBookmarkViewModeChange} />
                   <ThemeToggle />
                 </Stack>
               </Box>

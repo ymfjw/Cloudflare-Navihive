@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { Language as LanguageIcon, Folder as FolderIcon } from '@mui/icons-material';
 import type { SearchResultItem } from '../utils/search';
+import HighlightedText from './HighlightedText';
 
 interface SearchResultPanelProps {
   results: SearchResultItem[];
@@ -34,39 +35,6 @@ const SearchResultPanel: React.FC<SearchResultPanelProps> = ({
   if (!open || !query || results.length === 0) {
     return null;
   }
-
-  // 高亮匹配文本
-  const highlightText = (text: string, query: string) => {
-    if (!text || !query) return text;
-
-    const lowerText = text.toLowerCase();
-    const lowerQuery = query.toLowerCase();
-    const index = lowerText.indexOf(lowerQuery);
-
-    if (index === -1) return text;
-
-    const before = text.slice(0, index);
-    const match = text.slice(index, index + query.length);
-    const after = text.slice(index + query.length);
-
-    return (
-      <>
-        {before}
-        <Box
-          component='span'
-          sx={{
-            backgroundColor: 'primary.main',
-            color: 'primary.contrastText',
-            padding: '0 2px',
-            borderRadius: '2px',
-          }}
-        >
-          {match}
-        </Box>
-        {after}
-      </>
-    );
-  };
 
   const fieldLabels: Record<string, string> = {
     name: '名称',
@@ -144,7 +112,7 @@ const SearchResultPanel: React.FC<SearchResultPanelProps> = ({
                               whiteSpace: 'nowrap',
                             }}
                           >
-                            {highlightText(result.name, query)}
+                            <HighlightedText text={result.name} query={query} />
                           </Typography>
                           <Chip
                             label={result.type === 'site' ? '站点' : '分组'}
@@ -184,7 +152,7 @@ const SearchResultPanel: React.FC<SearchResultPanelProps> = ({
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              {highlightText(result.url, query)}
+                              <HighlightedText text={result.url} query={query} />
                             </Typography>
                           )}
                           {result.description && (
@@ -198,7 +166,7 @@ const SearchResultPanel: React.FC<SearchResultPanelProps> = ({
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              {highlightText(result.description, query)}
+                              <HighlightedText text={result.description} query={query} />
                             </Typography>
                           )}
                           {result.notes && (
@@ -212,7 +180,7 @@ const SearchResultPanel: React.FC<SearchResultPanelProps> = ({
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              备注: {highlightText(result.notes, query)}
+                              备注: <HighlightedText text={result.notes} query={query} />
                             </Typography>
                           )}
                         </Box>

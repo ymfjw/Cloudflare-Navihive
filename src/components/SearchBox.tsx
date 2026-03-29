@@ -1,6 +1,7 @@
 /**
  * 搜索框组件
  * 支持站内搜索和站外搜索引擎跳转
+ * Enhanced with search history and autocomplete
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -19,6 +20,10 @@ import {
   ListItemText,
   Divider,
   Chip,
+  List,
+  ListItem,
+  ListItemButton,
+  Typography,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -27,6 +32,8 @@ import {
   HomeWork as LocalIcon,
   ExpandMore as ExpandMoreIcon,
   Check as CheckIcon,
+  History as HistoryIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import SearchResultPanel from './SearchResultPanel';
 import { searchInternal, type SearchResultItem } from '../utils/search';
@@ -39,6 +46,7 @@ import {
   normalizeUrl,
   type SearchEngine,
 } from '../config/searchEngines';
+import { createSearchHistoryService } from '../services/SearchHistoryService';
 import type { Group, Site } from '../API/http';
 
 interface SearchBoxProps {
@@ -54,10 +62,12 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
   const [mode, setMode] = useState<SearchMode>('internal');
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [selectedEngine, setSelectedEngine] = useState<SearchEngine>(getDefaultSearchEngine());
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const historyService = useRef(createSearchHistoryService(20)).current;
 
   // 处理站内搜索
   const handleInternalSearch = useCallback(
@@ -65,12 +75,14 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
       if (!searchQuery.trim()) {
         setResults([]);
         setShowResults(false);
+        setShowHistory(false);
         return;
       }
 
       const searchResults = searchInternal(searchQuery, groups, sites);
       setResults(searchResults);
       setShowResults(true);
+      setShowHistory(false);
     },
     [groups, sites]
   );
@@ -78,6 +90,12 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
   // 处理输入变化（带防抖）
   useEffect(() => {
     if (mode === 'internal') {
+      if (!query.trim()) {
+        setShowHistory(true);
+        setShowResults(false);
+        return;
+      }
+
       const timer = setTimeout(() => {
         handleInternalSearch(query);
       }, 300); // 300ms 防抖
@@ -85,6 +103,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
       return () => clearTimeout(timer);
     } else {
       setShowResults(false);
+      setShowHistory(false);
     }
 
     return undefined;
@@ -144,6 +163,13 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
   // 处理结果点击
   const handleResultClick = (result: SearchResultItem) => {
     setShowResults(false);
+    setShowHistory(false);
+
+    // Add to search history
+    if (query.trim()) {
+      historyService.addEntry(query, results.length);
+    }
+
     setQuery('');
 
     if (result.type === 'site' && result.url) {
@@ -155,12 +181,36 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
     onInternalResultClick?.(result);
   };
 
+  // 处理历史记录点击
+  const handleHistoryClick = (historyQuery: string) => {
+    setQuery(historyQuery);
+    setShowHistory(false);
+    inputRef.current?.focus();
+  };
+
+  // 处理删除历史记录
+  const handleDeleteHistory = (e: React.MouseEvent, historyQuery: string) => {
+    e.stopPropagation();
+    historyService.removeEntry(historyQuery);
+    // Force re-render by toggling history visibility
+    setShowHistory(false);
+    setTimeout(() => setShowHistory(true), 0);
+  };
+
   // 处理清空输入
   const handleClear = () => {
     setQuery('');
     setResults([]);
     setShowResults(false);
+    setShowHistory(mode === 'internal');
     inputRef.current?.focus();
+  };
+
+  // 处理输入框获得焦点
+  const handleInputFocus = () => {
+    if (mode === 'internal' && !query.trim()) {
+      setShowHistory(true);
+    }
   };
 
   // 处理搜索引擎选择菜单
@@ -184,6 +234,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
     const handleClickOutside = (event: MouseEvent) => {
       if (searchBoxRef.current && !searchBoxRef.current.contains(event.target as Node)) {
         setShowResults(false);
+        setShowHistory(false);
       }
     };
 
@@ -319,6 +370,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={handleInputFocus}
             sx={{ ml: 1, flex: 1 }}
             inputProps={{ 'aria-label': '搜索' }}
             autoComplete='off'
@@ -370,6 +422,74 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
           onResultClick={handleResultClick}
           open={showResults}
         />
+      )}
+
+      {/* 搜索历史面板 */}
+      {mode === 'internal' && showHistory && !showResults && (
+        <Paper
+          elevation={0}
+          sx={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            mt: 1,
+            maxHeight: '300px',
+            overflowY: 'auto',
+            zIndex: 1300,
+            borderRadius: 4,
+            border: '1px solid',
+            borderColor: 'divider',
+            backgroundColor: (theme) =>
+              theme.palette.mode === 'dark' ? 'rgba(8, 26, 38, 0.94)' : 'rgba(255, 255, 255, 0.96)',
+            backdropFilter: 'blur(16px)',
+            boxShadow: (theme) =>
+              theme.palette.mode === 'dark'
+                ? '0 30px 60px rgba(0, 0, 0, 0.35)'
+                : '0 24px 48px rgba(15, 118, 110, 0.12)',
+          }}
+        >
+          <List sx={{ py: 0 }}>
+            {historyService.getHistory(10).length > 0 ? (
+              <>
+                <Box sx={{ px: 2, py: 1, bgcolor: 'action.hover' }}>
+                  <Typography variant='caption' color='text.secondary' fontWeight='medium'>
+                    最近搜索
+                  </Typography>
+                </Box>
+                {historyService.getHistory(10).map((entry, index) => (
+                  <React.Fragment key={entry.query}>
+                    {index > 0 && <Divider />}
+                    <ListItem disablePadding>
+                      <ListItemButton onClick={() => handleHistoryClick(entry.query)}>
+                        <ListItemIcon>
+                          <HistoryIcon fontSize='small' />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={entry.query}
+                          secondary={`${entry.resultCount} 个结果`}
+                        />
+                        <IconButton
+                          size='small'
+                          onClick={(e) => handleDeleteHistory(e, entry.query)}
+                          sx={{ ml: 1 }}
+                        >
+                          <DeleteIcon fontSize='small' />
+                        </IconButton>
+                      </ListItemButton>
+                    </ListItem>
+                  </React.Fragment>
+                ))}
+              </>
+            ) : (
+              <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
+                <Typography variant='body2' color='text.secondary'>
+                  暂无搜索历史
+                </Typography>
+              </Box>
+            )}
+          </List>
+        </Paper>
       )}
     </Box>
   );
