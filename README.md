@@ -364,6 +364,181 @@
 
 ---
 
+## 📥 批量导入
+
+NaviHive 支持通过 JSON 格式批量导入网站和分组数据，方便快速迁移或初始化导航站点。
+
+### 导入格式要求
+
+批量导入使用 JSON 格式，包含 `groups` 和 `sites` 两个数组：
+
+```json
+{
+  "groups": [
+    {
+      "name": "分组名称",
+      "order_num": 1,
+      "is_public": 1
+    }
+  ],
+  "sites": [
+    {
+      "group_id": 1,
+      "name": "网站名称",
+      "url": "https://example.com",
+      "icon": "https://example.com/favicon.ico",
+      "description": "网站描述",
+      "notes": "备注信息",
+      "order_num": 1,
+      "is_public": 1
+    }
+  ]
+}
+```
+
+### 字段说明
+
+#### Groups（分组）字段
+
+| 字段名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `name` | string | ✅ | 分组名称 |
+| `order_num` | number | ✅ | 排序序号，数字越小越靠前 |
+| `is_public` | number | ❌ | 是否公开（1=公开，0=私有），默认为 1 |
+
+#### Sites（站点）字段
+
+| 字段名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `group_id` | number | ✅ | 所属分组 ID（对应 groups 数组的索引 + 1） |
+| `name` | string | ✅ | 网站名称 |
+| `url` | string | ✅ | 网站 URL，必须以 http:// 或 https:// 开头 |
+| `icon` | string | ❌ | 网站图标 URL |
+| `description` | string | ❌ | 网站描述 |
+| `notes` | string | ❌ | 备注信息 |
+| `order_num` | number | ✅ | 排序序号，数字越小越靠前 |
+| `is_public` | number | ❌ | 是否公开（1=公开，0=私有），默认为 1 |
+
+### 导入示例
+
+#### 示例 1：基础导入
+
+```json
+{
+  "groups": [
+    {
+      "name": "常用工具",
+      "order_num": 1,
+      "is_public": 1
+    },
+    {
+      "name": "开发资源",
+      "order_num": 2,
+      "is_public": 1
+    }
+  ],
+  "sites": [
+    {
+      "group_id": 1,
+      "name": "Google",
+      "url": "https://www.google.com",
+      "icon": "https://www.google.com/favicon.ico",
+      "description": "全球最大的搜索引擎",
+      "order_num": 1,
+      "is_public": 1
+    },
+    {
+      "group_id": 1,
+      "name": "GitHub",
+      "url": "https://github.com",
+      "icon": "https://github.com/favicon.ico",
+      "description": "全球最大的代码托管平台",
+      "order_num": 2,
+      "is_public": 1
+    },
+    {
+      "group_id": 2,
+      "name": "MDN Web Docs",
+      "url": "https://developer.mozilla.org",
+      "icon": "https://developer.mozilla.org/favicon.ico",
+      "description": "Web 开发权威文档",
+      "notes": "前端开发必备",
+      "order_num": 1,
+      "is_public": 1
+    }
+  ]
+}
+```
+
+#### 示例 2：Chrome 书签转换
+
+如果你想从 Chrome 书签导入，可以使用项目提供的转换脚本：
+
+```bash
+# 1. 导出 Chrome 书签（Chrome 设置 > 书签 > 导出书签）
+# 2. 使用转换脚本
+python script/chromeToJSON.py bookmarks.html > import.json
+
+# 3. 在 NaviHive 管理界面导入 import.json
+```
+
+#### 示例 3：包含私有内容
+
+```json
+{
+  "groups": [
+    {
+      "name": "公开资源",
+      "order_num": 1,
+      "is_public": 1
+    },
+    {
+      "name": "私人收藏",
+      "order_num": 2,
+      "is_public": 0
+    }
+  ],
+  "sites": [
+    {
+      "group_id": 1,
+      "name": "Wikipedia",
+      "url": "https://www.wikipedia.org",
+      "description": "自由的百科全书",
+      "order_num": 1,
+      "is_public": 1
+    },
+    {
+      "group_id": 2,
+      "name": "内部文档",
+      "url": "https://internal.company.com",
+      "description": "公司内部文档系统",
+      "notes": "仅限内部访问",
+      "order_num": 1,
+      "is_public": 0
+    }
+  ]
+}
+```
+
+### 导入步骤
+
+1. 准备符合格式要求的 JSON 文件
+2. 登录 NaviHive 管理后台
+3. 进入"站点设置"或"批量管理"页面
+4. 点击"导入数据"按钮
+5. 选择或粘贴 JSON 文件内容
+6. 确认导入
+
+### 注意事项
+
+- `group_id` 必须对应 `groups` 数组中的分组（从 1 开始计数）
+- URL 必须是有效的网址格式（http:// 或 https://）
+- `order_num` 决定显示顺序，建议使用 1, 2, 3... 递增
+- 导入会创建新数据，不会覆盖现有内容
+- 建议先在测试环境验证 JSON 格式正确性
+
+---
+
 ## 🛠️ 技术栈
 
 **前端**: React 19 • TypeScript 5.7 • Material UI 7.0 • Tailwind CSS 4.1 • DND Kit • Vite 6
