@@ -42,13 +42,13 @@
     - **验证需求: 4.7, 4.8**
 
 - [-] 3. Worker API 实现 - PreferencesAPI 类
-  - [-] 3.1 创建 PreferencesAPI 类骨架
+  - [x] 3.1 创建 PreferencesAPI 类骨架
     - 创建 `worker/api/preferences.ts`
     - 定义 PreferencesAPI 类，接受 D1Database 参数
     - 定义 TypeScript 接口（Favorite, UserPreferences, Visit, MigrationResult）
     - _需求: 4.1_
   
-  - [ ] 3.2 实现收藏管理方法
+  - [x] 3.2 实现收藏管理方法
     - 实现 `getFavorites(userId: string)` 方法
     - 实现 `addFavorite(userId: string, siteId: number)` 方法（处理重复）
     - 实现 `removeFavorite(userId: string, siteId: number)` 方法
@@ -59,7 +59,7 @@
     - **属性 1: 收藏操作的完整性**
     - **验证需求: 1.2, 1.3, 1.4**
   
-  - [ ] 3.4 实现用户偏好设置方法
+  - [x] 3.4 实现用户偏好设置方法
     - 实现 `getPreferences(userId: string)` 方法
     - 实现 `updatePreferences(userId: string, prefs: Partial<UserPreferences>)` 方法
     - 使用 INSERT ... ON CONFLICT DO UPDATE 处理 upsert
@@ -70,7 +70,7 @@
     - **属性 6: 用户偏好设置往返一致性**
     - **验证需求: 3.2, 3.3, 3.4**
   
-  - [ ] 3.6 实现访问记录方法
+  - [-] 3.6 实现访问记录方法
     - 实现 `recordVisit(userId: string, siteId: number)` 方法
     - 使用 INSERT ... ON CONFLICT DO UPDATE 更新访问时间
     - 实现自动清理逻辑（保留最近 20 条）
