@@ -195,21 +195,31 @@
    不建议在 Cloudflare 表单里把 `Deploy command` 填成 `npm run deploy`，因为当前仓库脚本里会再次触发构建，容易重复执行。
 
 9. 初始化数据库表  
-   NaviHive 默认会创建 `3` 张表：
-   - `groups`
-   - `sites`
-   - `configs`
+   NaviHive 默认会创建 `6` 张表：
+   - `groups` - 分组表
+   - `sites` - 站点表
+   - `configs` - 配置表
+   - `user_favorites` - 用户收藏表（新增）
+   - `user_preferences` - 用户偏好设置表（新增）
+   - `user_recent_visits` - 用户最近访问表（新增）
 
    你有两种初始化方式。
 
-   第一种：直接执行仓库里的 SQL 文件，最省事：
+   **第一种：直接执行仓库里的 SQL 文件（推荐）**
 
    ```bash
+   # 初始化基础表
    npx wrangler d1 execute DB --remote --file=./init_table.sql --yes
+   
+   # 添加用户偏好持久化表
+   npx wrangler d1 execute DB --remote --file=./migrations/003_add_user_preferences.sql --yes
    ```
 
-   第二种：在 Cloudflare Dashboard 里手动执行 SQL。  
-   路径通常是：`Workers & Pages > D1 > 你的数据库 > Console`，然后执行下面这段建表语句：
+   **第二种：在 Cloudflare Dashboard 里手动执行 SQL**
+
+   路径：`Workers & Pages > D1 > 你的数据库 > Console`
+
+   先执行基础表创建：
 
    ```sql
    CREATE TABLE IF NOT EXISTS groups (
@@ -246,27 +256,72 @@
    INSERT INTO configs (key, value) VALUES ('DB_INITIALIZED', 'true');
    ```
 
+   再执行用户偏好持久化表创建：
+
+   ```sql
+   -- 用户收藏表
+   CREATE TABLE IF NOT EXISTS user_favorites (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       user_id TEXT NOT NULL,
+       site_id INTEGER NOT NULL,
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE,
+       UNIQUE(user_id, site_id)
+   );
+
+   CREATE INDEX IF NOT EXISTS idx_user_favorites_user_id ON user_favorites(user_id);
+   CREATE INDEX IF NOT EXISTS idx_user_favorites_site_id ON user_favorites(site_id);
+
+   -- 用户偏好设置表
+   CREATE TABLE IF NOT EXISTS user_preferences (
+       user_id TEXT PRIMARY KEY,
+       view_mode TEXT DEFAULT 'card',
+       theme_mode TEXT DEFAULT 'light',
+       custom_colors TEXT,
+       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   );
+
+   -- 用户最近访问表
+   CREATE TABLE IF NOT EXISTS user_recent_visits (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       user_id TEXT NOT NULL,
+       site_id INTEGER NOT NULL,
+       visited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+   );
+
+   CREATE INDEX IF NOT EXISTS idx_user_recent_visits_user_id ON user_recent_visits(user_id);
+   CREATE INDEX IF NOT EXISTS idx_user_recent_visits_visited_at ON user_recent_visits(visited_at DESC);
+   CREATE UNIQUE INDEX IF NOT EXISTS idx_user_recent_visits_unique ON user_recent_visits(user_id, site_id);
+   ```
+
    初始化完成后，可以用下面这条命令检查表是否已经创建成功：
 
    ```bash
    npx wrangler d1 execute DB --remote --command="SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
    ```
 
-   如果你是旧库升级，而不是新建空库，再额外执行迁移：
+   如果你是旧库升级，而不是新建空库，需要执行以下迁移：
 
    ```bash
+   # 添加 is_public 字段（如果还没有）
    npx wrangler d1 execute DB --remote --file=./migrations/002_add_is_public.sql --yes
+   
+   # 添加用户偏好持久化表
+   npx wrangler d1 execute DB --remote --file=./migrations/003_add_user_preferences.sql --yes
    ```
 
-   这一步会补充 `groups.is_public`、`sites.is_public`，并创建对应索引。  
    如果你习惯在 D1 Console 里手动执行，升级 SQL 如下：
 
    ```sql
+   -- 002 迁移：添加 is_public 字段
    ALTER TABLE groups ADD COLUMN is_public INTEGER DEFAULT 1;
    ALTER TABLE sites ADD COLUMN is_public INTEGER DEFAULT 1;
 
    CREATE INDEX IF NOT EXISTS idx_groups_is_public ON groups(is_public);
    CREATE INDEX IF NOT EXISTS idx_sites_is_public ON sites(is_public);
+
+   -- 003 迁移：添加用户偏好持久化表（见上方完整 SQL）
    ```
 
 10. 重新触发部署  
